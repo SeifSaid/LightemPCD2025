@@ -86,11 +86,10 @@ contract UserRegistry {
         User storage user1Data = users[user1];
         User storage user2Data = users[user2];
         
-        // Simple distance calculation (can be improved for accuracy)
+        // Simple distance
         int256 latDiff = user1Data.latitude - user2Data.latitude;
         int256 longDiff = user1Data.longitude - user2Data.longitude;
         
-        // Convert to positive values and calculate distance
         uint256 distance = uint256(
             (latDiff * latDiff + longDiff * longDiff)
         );
