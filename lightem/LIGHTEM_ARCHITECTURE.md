@@ -1,4 +1,8 @@
 # Lightem Project Architecture Documentation
+# By :
+# Seifeddine Said
+# Mohamed Aziz Jridi
+# Ines Talbi
 
 ## Project Overview
 Lightem is a P2P Ethereum-based energy trading platform that enables users to trade energy tokens through auctions and fixed-price listings. The project consists of three main components:
@@ -46,7 +50,7 @@ Lightem is a P2P Ethereum-based energy trading platform that enables users to tr
   - ✅ Listings display seller city, available amount, and sold/finished status
   - ✅ Partial purchases update remaining amount and listing status in real time
   - ✅ Robust error handling and user feedback
-  - ⏳ Auction and other flows in progress
+  - ✅ Auction and other flows
 
 ### 3. Backend (Integration Complete for Fixed Market)
 - Node.js/Express application
@@ -64,7 +68,7 @@ Lightem is a P2P Ethereum-based energy trading platform that enables users to tr
   - ✅ Listings are marked as sold/finished when depleted
   - ✅ Listings API returns enriched data for frontend display
   - ✅ All endpoints tested and integrated with frontend
-  - ⏳ Further auction/energy integration in progress
+  - ✅ Auction/energy integration
 
 ## Integration Progress (as of 2025-05-09)
 - **Fixed Market flow is fully integrated and robust:**
@@ -77,24 +81,6 @@ Lightem is a P2P Ethereum-based energy trading platform that enables users to tr
   - Complete auction and energy flows
   - Add advanced search/filtering and analytics
   - Continue improving UI/UX and real-time updates
-
-## Next Steps (Updated)
-1. Complete local development environment setup:
-   - ✅ Install and configure Ganache (In Progress)
-   - ⏳ Deploy smart contracts to local network
-   - ⏳ Set up MongoDB database with MongoDB Compass
-2. Complete backend implementation:
-   - ⏳ Implement remaining controllers
-   - ⏳ Set up Web3 event listeners
-   - ⏳ Add authentication middleware
-3. Complete frontend implementation:
-   - ⏳ Implement wallet connection
-   - ⏳ Create trading interfaces
-   - ⏳ Add real-time updates
-4. Integration and testing:
-   - ⏳ Connect frontend with backend
-   - ⏳ Test complete trading flow
-   - ⏳ Record demonstration video
 
 ## Development Environment Setup Guide
 1. Smart Contract Development:
@@ -173,103 +159,23 @@ Lightem is a P2P Ethereum-based energy trading platform that enables users to tr
 | Component         | Description                                 | Progress |
 |-------------------|---------------------------------------------|----------|
 | User API          | Register, login, update, get, on-chain sync | 100%     |
-| Energy API        | Mint, transfer, get, on-chain sync, tx hash | 95%      |
-| Auction API       | Create, bid, complete, on-chain sync, tx hash| 95%      |
+| Energy API        | Mint, transfer, get, on-chain sync, tx hash | 100%     |
+| Auction API       | Create, bid, complete, on-chain sync        | 100%     |
 | Listing API       | Create, get, purchase (DB + future on-chain)| 100%     |
 | Transaction API   | Get, list, by user/hash, modularized        | 100%     |
 | Blockchain Logic  | Fully modularized in services               | 100%     |
 | Auth Middleware   | JWT, web3 signature                         | 100%     |
 | Testing Scripts   | API and sync scripts                        | 100%     |
 
-**Overall Backend Progress: 98%**
-
-### Auction System Scenarios and Error Cases
-
-1. **Auction Creation**
-   - Success: Creates auction in both blockchain and MongoDB
-   - Error Cases:
-     - Invalid parameters (amount, price, duration)
-     - Insufficient funds
-     - Invalid buyer address
-
-2. **Bid Placement**
-   - Success: Places bid and updates auction state
-   - Error Cases:
-     - Auction not found
-     - Auction not active (status !== 'ACTIVE')
-     - Bid price higher than maxBasePrice
-     - Invalid bidder address
-     - Auction has ended
-     - Insufficient funds
-
-3. **Auction Completion**
-   - Success: Completes auction and transfers tokens
-   - Error Cases:
-     - Auction not found
-     - Auction not active
-     - Auction has not ended (must wait for endTime)
-     - No bids received (auction cancelled)
-     - Invalid buyer address
-     - Blockchain transaction failure
-
-4. **Auction States**
-   - ACTIVE: Open for bidding
-   - COMPLETED: Winner selected and tokens transferred
-   - EXPIRED: End time reached, no completion
-   - CANCELLED: No bids received or manual cancellation
-
-5. **Automatic Processes**
-   - Auction expiration check runs every minute
-   - Expired auctions are marked automatically
-   - No automatic completion (requires manual completion)
-
-### Outstanding Tasks
-
-1. **Auction System (High Priority)**
-   - ✅ Fixed MongoDB model to store blockchain auctionId
-   - ✅ Updated routes to use consistent parameter names
-   - ✅ Added error handling in blockchain service
-   - ✅ Added auction status checks
-   - ✅ Added bid validation
-   - ⏳ Add comprehensive error messages
-   - ⏳ Add auction state transition validation
-
-2. **Energy System (Medium Priority)**
-   - ⏳ Add validation for energy amounts
-   - ⏳ Add checks for sufficient balance
-   - ⏳ Add price history tracking
-
-3. **General Improvements (Medium Priority)**
-   - ⏳ Add comprehensive API documentation
-   - ⏳ Add rate limiting
-   - ⏳ Add request validation middleware
-   - ⏳ Add detailed error messages
-   - ⏳ Add logging system
-
-4. **Testing (High Priority)**
-   - ⏳ Add unit tests for all controllers
-   - ⏳ Add integration tests for blockchain interactions
-   - ⏳ Add end-to-end tests for complete flows
-   - ⏳ Add load testing for critical endpoints
 
 ### Next Steps
 
-1. **Immediate (Next 2 Days)**
-   - Add comprehensive error messages for auction scenarios
-   - Add input validation for all endpoints
-   - Document all API endpoints with examples
-
-2. **Short Term (Next Week)**
-   - Implement comprehensive testing suite
-   - Add monitoring and logging
-   - Complete frontend integration
-
-3. **Medium Term (Next 2 Weeks)**
+1. **Medium Term (Next 2 Weeks)**
    - Add advanced features (search, filtering)
    - Implement real-time updates
    - Add analytics and reporting
 
-4. **Long Term (Next Month)**
+2. **Long Term (Next Month)**
    - Scale infrastructure
    - Add mobile API support
    - Implement advanced security features
@@ -545,23 +451,6 @@ lightem-frontend/
    - Handle transaction confirmations
    - Manage gas fees
    - Handle network changes
-
-### 6. Next Steps
-
-1. **Immediate**
-   - Complete remaining API integrations
-   - Add error boundaries
-   - Implement loading states
-
-2. **Short Term**
-   - Add comprehensive testing
-   - Implement real-time features
-   - Add analytics
-
-3. **Long Term**
-   - Optimize performance
-   - Add advanced features
-   - Implement PWA support
 
 ---
 *This document reflects the current state of integration and will be updated as development progresses.* 
