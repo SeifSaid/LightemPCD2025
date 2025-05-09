@@ -2,10 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { useWeb3 } from './context/Web3Context';
+import { useAuth } from './context/AuthContext';
+import { useAuctions } from './context/AuctionContext';
 
 const StartAuctionPage = () => {
     const navigate = useNavigate();
     const { theme } = useTheme();
+    const { account } = useWeb3();
+    const { user } = useAuth();
+    const { createAuction } = useAuctions();
     const [formData, setFormData] = useState({
         energyAmount: '',
         startingPrice: '',
@@ -13,6 +19,8 @@ const StartAuctionPage = () => {
     });
     const [errors, setErrors] = useState({});
     const [isBtnHovered, setIsBtnHovered] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState('');
 
     const styles = {
         container: {
@@ -109,7 +117,6 @@ const StartAuctionPage = () => {
             ...prev,
             [name]: value
         }));
-        // Clear error when user starts typing
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -130,14 +137,32 @@ const StartAuctionPage = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setApiError('');
+        if (!account || !user) {
+            setApiError('You must be logged in and connected to your wallet.');
+            return;
+        }
         if (validateForm()) {
-            // TODO: Implement auction creation logic
-            console.log('Creating auction:', formData);
-            navigate('/auction-market');
+            setLoading(true);
+            try {
+                await createAuction({
+                    buyer: account,
+                    amount: Number(formData.energyAmount),
+                    maxBasePrice: Number(formData.startingPrice),
+                    duration: Number(formData.duration),
+                });
+                navigate('/auction-market');
+            } catch (err) {
+                setApiError('Failed to create auction. Please try again.');
+            } finally {
+                setLoading(false);
+            }
         }
     };
+
+    const isFullyConnected = account && user && user.address && user.address.toLowerCase() === account.toLowerCase();
 
     return (
         <div style={styles.container}>
@@ -205,9 +230,13 @@ const StartAuctionPage = () => {
                             style={styles.submitButton}
                             onMouseEnter={() => setIsBtnHovered(true)}
                             onMouseLeave={() => setIsBtnHovered(false)}
+                            disabled={loading}
                         >
-                            Start Auction
+                            {loading ? 'Creating...' : 'Start Auction'}
                         </button>
+                        {apiError && (
+                            <div style={styles.errorMessage}>{apiError}</div>
+                        )}
                     </form>
                 </div>
             </div>

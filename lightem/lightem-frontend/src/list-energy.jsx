@@ -2,13 +2,19 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { useWeb3 } from './context/Web3Context';
+import { listings } from './services/api';
 
 const CreateListing = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const { account, isConnected } = useWeb3();
   const [formData, setFormData] = useState({ energyAmount: '', price: '' });
   const [errors, setErrors] = useState({});
   const [isBtnHovered, setIsBtnHovered] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [apiSuccess, setApiSuccess] = useState('');
 
   const styles = {
     container: {
@@ -81,6 +87,17 @@ const CreateListing = () => {
       fontSize: '0.875rem',
       marginTop: '0.5rem',
     },
+    successMessage: {
+      color: '#059669',
+      fontSize: '0.95rem',
+      marginTop: '0.5rem',
+      fontWeight: 600,
+    },
+    disabledInput: {
+      background: '#f3f4f6',
+      color: '#888',
+      cursor: 'not-allowed',
+    },
   };
 
   const handleChange = (e) => {
@@ -91,17 +108,32 @@ const CreateListing = () => {
 
   const validateForm = () => {
     const newErrors = {};
+    if (!isConnected || !account) newErrors.account = 'Please connect your wallet.';
     if (!formData.energyAmount || formData.energyAmount <= 0) newErrors.energyAmount = 'Please enter a valid energy amount';
     if (!formData.price || formData.price <= 0) newErrors.price = 'Please enter a valid price';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setApiError('');
+    setApiSuccess('');
     if (validateForm()) {
-      // TODO: Implement listing creation logic
-      navigate('/fixed-market');
+      setLoading(true);
+      try {
+        await listings.create({
+          seller: account,
+          amount: Number(formData.energyAmount),
+          basePrice: Number(formData.price),
+        });
+        setApiSuccess('Listing created successfully!');
+        setTimeout(() => navigate('/fixed-market'), 1000);
+      } catch (err) {
+        setApiError(err.response?.data?.message || 'Failed to create listing.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -115,6 +147,17 @@ const CreateListing = () => {
         </div>
         <div style={styles.formCard}>
           <form onSubmit={handleSubmit}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Your Wallet Address</label>
+              <input
+                type="text"
+                value={account || ''}
+                disabled
+                style={{ ...styles.input, ...styles.disabledInput }}
+                placeholder="Connect your wallet"
+              />
+              {errors.account && <div style={styles.errorMessage}>{errors.account}</div>}
+            </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Energy Amount (kWh)</label>
               <input
@@ -150,9 +193,12 @@ const CreateListing = () => {
               style={styles.submitButton}
               onMouseEnter={() => setIsBtnHovered(true)}
               onMouseLeave={() => setIsBtnHovered(false)}
+              disabled={loading}
             >
-              Create Listing
+              {loading ? 'Creating...' : 'Create Listing'}
             </button>
+            {apiError && <div style={styles.errorMessage}>{apiError}</div>}
+            {apiSuccess && <div style={styles.successMessage}>{apiSuccess}</div>}
           </form>
         </div>
       </div>

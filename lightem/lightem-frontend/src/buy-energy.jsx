@@ -2,15 +2,23 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { useWeb3 } from './context/Web3Context';
+import { listings } from './services/api';
 
 const BuyEnergy = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { theme } = useTheme();
+    const { account } = useWeb3();
     const listing = location.state?.listing;
     const [amount, setAmount] = useState('');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
     const [isBtnHovered, setIsBtnHovered] = useState(false);
+    const [distanceFee, setDistanceFee] = useState(listing.distanceFee || 0);
+    const [sellerCity, setSellerCity] = useState(listing.sellerCity || '');
+    const [buyerCity, setBuyerCity] = useState('');
 
     const styles = {
         container: {
@@ -81,6 +89,12 @@ const BuyEnergy = () => {
             fontSize: '0.875rem',
             marginTop: '0.5rem',
         },
+        successMessage: {
+            color: '#059669',
+            fontSize: '0.95rem',
+            marginTop: '0.5rem',
+            fontWeight: 600,
+        },
         info: {
             color: theme.textSecondary,
             fontSize: '0.95rem',
@@ -99,21 +113,6 @@ const BuyEnergy = () => {
         },
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        setError('');
-        if (!amount || isNaN(amount) || Number(amount) <= 0) {
-            setError('Please enter a valid amount');
-            return;
-        }
-        if (Number(amount) > listing.energy) {
-            setError('Amount exceeds available energy');
-            return;
-        }
-        // TODO: Implement buy logic
-        navigate('/fixed-market');
-    };
-
     if (!listing) {
         return (
             <div style={styles.container}>
@@ -128,20 +127,58 @@ const BuyEnergy = () => {
         );
     }
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        if (!amount || isNaN(amount) || Number(amount) <= 0) {
+            setError('Please enter a valid amount');
+            return;
+        }
+        if (Number(amount) > listing.remainingAmount) {
+            setError('Amount exceeds available energy');
+            return;
+        }
+        if (!account) {
+            setError('Please connect your wallet');
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await listings.purchase(listing._id, {
+                buyer: account,
+                finalPrice: Number(listing.basePrice) * Number(amount),
+                purchaseAmount: Number(amount),
+            });
+            setSuccess('Purchase successful!');
+            setDistanceFee(res.data.distanceFee || 0);
+            setSellerCity(res.data.sellerCity || '');
+            setBuyerCity(res.data.buyerCity || '');
+            setTimeout(() => navigate('/fixed-market'), 1200);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to complete purchase.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Calculate cost breakdown
+    const baseCost = Number(listing.basePrice) * Number(amount || 0);
+    const platformFee = Math.round(baseCost * 0.01 * 10000) / 10000; // 1% fee, rounded
+
     return (
         <div style={styles.container}>
             <Navbar />
             <div style={styles.content}>
                 <div style={styles.header}>
                     <h1 style={styles.title}>Buy Energy</h1>
-                    <p style={styles.subtitle}>Purchase energy from {listing.producer}</p>
+                    <p style={styles.subtitle}>Purchase energy from {listing.producerName || listing.producer || listing.seller?.slice(0, 8) + '...' || 'Unknown'}</p>
                 </div>
                 <div style={styles.listingCard}>
-                    <div style={styles.detail}><span style={styles.detailLabel}>Producer:</span> {listing.producer}</div>
-                    <div style={styles.detail}><span style={styles.detailLabel}>Available:</span> {listing.energy} kWh</div>
-                    <div style={styles.detail}><span style={styles.detailLabel}>Price:</span> {listing.price}</div>
-                    <div style={styles.detail}><span style={styles.detailLabel}>Location:</span> {listing.distance}</div>
-                    <div style={styles.detail}><span style={styles.detailLabel}>Completion:</span> {listing.completion}</div>
+                    <div style={styles.detail}><span style={styles.detailLabel}>Producer:</span> {listing.producerName || listing.producer || listing.seller?.slice(0, 8) + '...' || 'Unknown'}</div>
+                    <div style={styles.detail}><span style={styles.detailLabel}>Available:</span> {listing.remainingAmount} kWh</div>
+                    <div style={styles.detail}><span style={styles.detailLabel}>Price:</span> {listing.basePrice} wei</div>
+                    <div style={styles.detail}><span style={styles.detailLabel}>Location:</span> {listing.city || '--'}</div>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <label style={styles.label}>Amount to Buy (kWh)</label>
@@ -153,14 +190,34 @@ const BuyEnergy = () => {
                         placeholder="Enter amount to buy"
                         required
                     />
+                    {/* Cost breakdown */}
+                    {amount && Number(amount) > 0 && !isNaN(amount) && (
+                      <div style={{ margin: '1rem 0', background: theme.isDarkMode ? '#23272f' : '#f3f4f6', borderRadius: 8, padding: '1rem' }}>
+                        <div style={{ color: theme.text, fontWeight: 500 }}>Cost Breakdown:</div>
+                        <div style={{ color: theme.textSecondary, fontSize: '0.98em', marginTop: 4 }}>
+                          Base: <b>{listing.basePrice} wei</b> × <b>{amount}</b> = <b>{baseCost} wei</b><br />
+                          Platform Fee (1%): <b>{platformFee} wei</b><br />
+                          Distance Fee: <b>{distanceFee} wei</b><br />
+                          <span style={{ color: '#059669', fontWeight: 600 }}>Total: {baseCost + platformFee + distanceFee} wei</span>
+                        </div>
+                        {(sellerCity || buyerCity) && (
+                          <div style={{ color: theme.textSecondary, fontSize: '0.95em', marginTop: 6 }}>
+                            <b>Seller City:</b> {sellerCity || '--'}<br />
+                            <b>Your City:</b> {buyerCity || '--'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {error && <div style={styles.errorMessage}>{error}</div>}
+                    {success && <div style={styles.successMessage}>{success}</div>}
                     <button
                         type="submit"
                         style={styles.submitButton}
                         onMouseEnter={() => setIsBtnHovered(true)}
                         onMouseLeave={() => setIsBtnHovered(false)}
+                        disabled={loading}
                     >
-                        Buy Now
+                        {loading ? 'Processing...' : 'Buy Now'}
                     </button>
                 </form>
             </div>

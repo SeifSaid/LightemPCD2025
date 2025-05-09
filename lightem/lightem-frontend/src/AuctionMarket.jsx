@@ -1,154 +1,130 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
+import { useAuctions } from './context/AuctionContext';
+import { useToast } from '@chakra-ui/react';
+import { useWeb3 } from './context/Web3Context';
 
 const AuctionMarket = () => {
   const { theme } = useTheme();
-  const [activeTab, setActiveTab] = useState('open');
-  const [auctions, setAuctions] = useState([
-    {
-      id: 1,
-      buyer: "GreenGuru",
-      energy: 61,
-      elapsedTime: 35,
-      completion: "98.45%",
-      distance: "7 km (Ariana)",
-      orders: "112 orders",
-      bestBid: '100.99 wei',
-      role: "buyer",
-      status: "open",
-    },
-    {
-      id: 2,
-      buyer: "BioBeth",
-      energy: 21,
-      elapsedTime: 285,
-      completion: "78.9%",
-      distance: "12 km (Lac2)",
-      orders: "41 orders",
-      bestBid: '-',
-      role: "buyer",
-      status: "open",
-    },
-    {
-      id: 3,
-      buyer: "SunPower",
-      energy: 45,
-      elapsedTime: 120,
-      completion: "85.2%",
-      distance: "5 km (Marsa)",
-      orders: "67 orders",
-      bestBid: '99.50 wei',
-      role: "buyer",
-      status: "closed",
-    },
-    {
-      id: 4,
-      buyer: "EcoVolt",
-      energy: 80,
-      elapsedTime: 200,
-      completion: "92.1%",
-      distance: "9 km (Bardo)",
-      orders: "88 orders",
-      bestBid: '120.00 wei',
-      role: "buyer",
-      status: "closed",
-    },
-  ]);
-  const [hoveredButtonId, setHoveredButtonId] = useState(null);
-
-  const formatTime = (seconds) => {
-    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const secs = String(seconds % 60).padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
-
   const navigate = useNavigate();
+  const toast = useToast();
+  const { user, loading: userLoading } = useAuth();
+  const { activeAuctions, completedAuctions, loading, error } = useAuctions();
+  const [activeTab, setActiveTab] = useState('open');
+  const [hoveredBidId, setHoveredBidId] = useState(null);
+  const { account } = useWeb3();
+
+  const isFullyConnected =
+    account && user && user.address && user.address.toLowerCase() === account.toLowerCase();
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setAuctions((prev) =>
-        prev.map((a) => ({
-          ...a,
-          elapsedTime: a.status === 'open' ? a.elapsedTime + 1 : a.elapsedTime,
-        }))
-      );
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (error) {
+      toast({
+        title: 'Error',
+        description: error,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  }, [error, toast]);
 
-  const filteredAuctions = auctions.filter(auction => auction.status === activeTab);
+  const handleStartAuction = () => {
+    if (userLoading) return;
+    if (!isFullyConnected) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please login to create an auction',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+      navigate('/login');
+      return;
+    }
+    navigate('/start-auction');
+  };
+
+  const handlePlaceBid = id => {
+    if (userLoading) return;
+    if (!isFullyConnected) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please login to place a bid',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+      navigate('/login');
+      return;
+    }
+    navigate(`/bid/${id}`);
+  };
+
+  const formatTime = endTime => {
+    const now = new Date();
+    const diff = Math.floor((new Date(endTime) - now) / 1000);
+    const mins = String(Math.floor(diff / 60)).padStart(2, '0');
+    const secs = String(diff % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
 
   const styles = {
     container: {
       fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      background: theme.background,
+      backgroundColor: theme.background,
+      color: theme.text,
       minHeight: '100vh',
+      transition: 'background-color 0.3s, color 0.3s',
     },
-    content: {
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '2rem',
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '2rem',
-    },
+    content: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
     title: {
       fontSize: '2.5rem',
-      fontWeight: '800',
+      fontWeight: 800,
       margin: 0,
       color: theme.text,
       fontFamily: "'Poppins', sans-serif",
     },
-    subtitle: {
-      color: theme.textSecondary,
-      fontSize: '1rem',
-      margin: '0.5rem 0 0 0',
-    },
+    subtitle: { color: theme.textSecondary, fontSize: '1rem', margin: '0.5rem 0 0' },
     startAuctionBtn: {
       backgroundColor: theme.accent,
-      color: theme.text,
+      color: theme.buttonText,
       padding: '0.75rem 1.5rem',
       borderRadius: '0.5rem',
       border: 'none',
-      fontWeight: '600',
+      fontWeight: 600,
       fontSize: '1rem',
       cursor: 'pointer',
-      transition: 'all 0.2s',
+      transition: 'background-color 0.2s, transform 0.2s',
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
     },
-    tabs: {
-      display: 'flex',
-      borderBottom: `1px solid ${theme.border}`,
-      marginBottom: '1.5rem',
-      gap: '1rem',
-    },
-    tabBtn: isActive => ({
+    tabs: { display: 'flex', borderBottom: `1px solid ${theme.border}`, marginBottom: '2rem', gap: '1rem' },
+    tabBtn: active => ({
       padding: '0.75rem 1.5rem',
-      border: 'none',
       background: 'none',
-      fontWeight: isActive ? '600' : '500',
-      color: isActive ? theme.accent : theme.textSecondary,
-      borderBottom: isActive ? `2px solid ${theme.accent}` : '2px solid transparent',
+      border: 'none',
+      fontWeight: active ? 600 : 500,
+      color: active ? theme.accent : theme.textSecondary,
+      borderBottom: active ? `2px solid ${theme.accent}` : '2px solid transparent',
       fontSize: '1rem',
       cursor: 'pointer',
       transition: 'all 0.2s',
-      position: 'relative',
     }),
     tableHeader: {
       display: 'grid',
       gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr',
-      fontWeight: '600',
+      fontWeight: 600,
       color: theme.textSecondary,
-      padding: '1rem 0',
+      padding: '1rem 1.5rem',
       borderBottom: `1px solid ${theme.border}`,
       fontSize: '0.95rem',
+      backgroundColor: theme.cardBackground,
     },
     tableRow: {
       display: 'grid',
@@ -157,58 +133,51 @@ const AuctionMarket = () => {
       padding: '1rem 1.5rem',
       borderBottom: `1px solid ${theme.border}`,
       fontSize: '0.95rem',
-      background: theme.cardBackground,
-      transition: 'background 0.2s',
+      backgroundColor: theme.cardBackground,
+      transition: 'background-color 0.2s',
     },
-    tableRowHover: {
-      background: '#fafafa',
-    },
+    tableRowHover: { backgroundColor: theme.hoverBackground },
     bidBtn: {
       backgroundColor: theme.accent,
-      color: theme.text,
+      color: theme.buttonText,
       padding: '0.5rem 1.25rem',
       borderRadius: '0.4rem',
       border: 'none',
-      fontWeight: '600',
+      fontWeight: 600,
       fontSize: '0.95rem',
       cursor: 'pointer',
-      transition: 'all 0.2s',
-    },
-    bidBtnHover: {
-      backgroundColor: '#e6b800',
-    },
-    backButton: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-      color: theme.textSecondary,
-      fontSize: '0.95rem',
-      textDecoration: 'none',
-      marginBottom: '1rem',
-      cursor: 'pointer',
-      width: 'fit-content',
+      transition: 'background-color 0.2s',
     },
     statusBadge: {
       padding: '0.25rem 0.75rem',
       borderRadius: '9999px',
       fontSize: '0.875rem',
-      fontWeight: '500',
+      fontWeight: 500,
       display: 'inline-block',
     },
     statusOpen: {
-      backgroundColor: '#dcfce7',
-      color: '#059669',
+      backgroundColor: theme.successBg,
+      color: theme.successColor,
     },
     statusClosed: {
-      backgroundColor: theme.isDarkMode ? '#3a2323' : '#fee2e2',
-      color: theme.isDarkMode ? '#fca5a5' : '#dc2626',
+      backgroundColor: theme.errorBg || '#fee2e2',
+      color: theme.errorColor || '#dc2626',
     },
-    emptyState: {
-      textAlign: 'center',
-      padding: '3rem',
-      color: theme.textSecondary,
-    },
+    emptyState: { textAlign: 'center', padding: '3rem', color: theme.textSecondary },
   };
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <Navbar />
+        <div style={styles.content}>
+          <div style={{ color: theme.text }}>Loading auctions...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const auctions = activeTab === 'open' ? activeAuctions : completedAuctions;
 
   return (
     <div style={styles.container}>
@@ -218,110 +187,94 @@ const AuctionMarket = () => {
           <div>
             <h1 style={styles.title}>Auction Market</h1>
             <p style={styles.subtitle}>
-              {activeTab === 'open' 
-                ? 'Active auctions that you can participate in'
-                : 'Recently closed auctions and their results'}
+              {activeTab === 'open'
+                ? 'Participate now in live energy auctions!'
+                : 'Explore results from completed auctions'}
             </p>
           </div>
-          <button 
-            onClick={() => navigate('/start-auction')} 
+          <button
+            onClick={handleStartAuction}
             style={styles.startAuctionBtn}
-            onMouseEnter={e => e.target.style.backgroundColor = theme.accentHover}
-            onMouseLeave={e => e.target.style.backgroundColor = theme.accent}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = theme.accentHover)}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = theme.accent)}
+            disabled={userLoading}
           >
-            Start New Auction
+            {userLoading ? 'Loading...' : 'Start New Auction'}
           </button>
         </div>
+
         <div style={styles.tabs}>
-          <button 
-            style={styles.tabBtn(activeTab === 'open')} 
-            onClick={() => setActiveTab('open')}
-          >
-            Open Auctions
-          </button>
-          <button 
-            style={styles.tabBtn(activeTab === 'closed')} 
-            onClick={() => setActiveTab('closed')}
-          >
-            Closed Auctions
-          </button>
+          {['open', 'closed'].map(tab => (
+            <button
+              key={tab}
+              style={styles.tabBtn(activeTab === tab)}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab === 'open' ? 'Open Auctions' : 'Closed Auctions'}
+            </button>
+          ))}
         </div>
-        {filteredAuctions.length > 0 ? (
+
+        {auctions.length > 0 ? (
           <>
             <div style={styles.tableHeader}>
               <span>Buyer</span>
-              <span>Energy amount</span>
-              <span>Current best bid</span>
+              <span>Energy Amount</span>
+              <span>Current Best Bid</span>
               <span>Time</span>
               <span>Action</span>
             </div>
-            {filteredAuctions.map((auction) => (
-              <div 
-                key={auction.id} 
+            {auctions.map(a => (
+              <div
+                key={a._id}
                 style={styles.tableRow}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = theme.hoverBackground)}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = theme.cardBackground)}
               >
                 <div>
-                  <div style={{ fontWeight: '600', color: theme.text, fontSize: '0.95rem' }}>
-                    {auction.buyer}
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: theme.textSecondary, lineHeight: '1.5' }}>
-                    {auction.completion} &bull; {auction.distance}<br />
-                    {auction.orders}
+                  <div style={{ fontWeight: 600, color: theme.text }}>{a.buyerName || a.buyer?.slice(0, 8) + '...'}</div>
+                  <div style={{ fontSize: '0.875rem', color: theme.textSecondary }}>
+                    {a.bids.length} bids • {a.amount} kWh
                   </div>
                 </div>
-                <div style={{ fontWeight: '600', color: theme.text }}>{auction.energy} kWh</div>
-                <div style={{ fontWeight: '600', color: theme.text }}>{auction.bestBid}</div>
+                <div style={{ fontWeight: 600, color: theme.text }}>{a.amount} kWh</div>
+                <div style={{ fontWeight: 600, color: theme.text }}>
+                  {a.bids.length ? `${Math.min(...a.bids.map(b => b.basePrice))} ETH` : 'No bids yet'}
+                </div>
                 <div>
-                  {auction.status === 'open' ? (
-                    <div style={{ fontFamily: "'Inter', monospace", fontWeight: '600', color: theme.text }}>
-                      {formatTime(auction.elapsedTime)}
-                    </div>
+                  {a.status === 'ACTIVE' ? (
+                    <code style={{ fontFamily: 'monospace', color: theme.text }}>{formatTime(a.endTime)}</code>
                   ) : (
-                    <span style={{ ...styles.statusBadge, ...styles.statusClosed }}>
-                      Closed
-                    </span>
+                    <span style={{ ...styles.statusBadge, ...styles.statusClosed }}>{a.status}</span>
                   )}
                 </div>
                 <div>
-                  {auction.status === 'open' ? (
-                    <button 
-                      style={{
-                        ...styles.bidBtn,
-                        backgroundColor: hoveredButtonId === auction.id ? '#e6b800' : '#facc15',
-                        color: '#222',
-                      }}
-                      onMouseEnter={() => setHoveredButtonId(auction.id)}
-                      onMouseLeave={() => setHoveredButtonId(null)}
-                      onClick={() => navigate('/bid', { state: { auction } })}
-                    >
-                      Place Bid
-                    </button>
-                  ) : (
-                    <button 
-                      style={{ 
-                        ...styles.bidBtn, 
-                        backgroundColor: theme.isDarkMode ? '#444c56' : '#e5e7eb', 
-                        color: theme.isDarkMode ? '#d1d5db' : '#666',
-                      }}
-                      onClick={() => navigate('/bid', { state: { auction, viewOnly: true } })}
-                    >
-                      View Details
-                    </button>
-                  )}
+                  <button
+                    style={{
+                      ...styles.bidBtn,
+                      backgroundColor:
+                        a.status === 'ACTIVE'
+                          ? hoveredBidId === a._id
+                            ? theme.accentHover
+                            : theme.accent
+                          : theme.border,
+                      color: a.status === 'ACTIVE' ? theme.buttonText : theme.textSecondary,
+                    }}
+                    onMouseEnter={() => setHoveredBidId(a._id)}
+                    onMouseLeave={() => setHoveredBidId(null)}
+                    onClick={() => handlePlaceBid(a._id)}
+                    disabled={userLoading}
+                  >
+                    {a.status === 'ACTIVE' ? 'Place Bid' : 'View Details'}
+                  </button>
                 </div>
               </div>
             ))}
           </>
         ) : (
           <div style={styles.emptyState}>
-            <h3 style={{ color: '#666', marginBottom: '1rem' }}>
-              No {activeTab} auctions found
-            </h3>
-            <p style={{ color: '#888' }}>
-              {activeTab === 'open' 
-                ? 'Check back later for new auctions or start your own'
-                : 'No closed auctions to display'}
-            </p>
+            <h3>No {activeTab === 'open' ? 'open' : 'closed'} auctions found</h3>
+            <p>{activeTab === 'open' ? 'Be the first to start an auction!' : ''}</p>
           </div>
         )}
       </div>

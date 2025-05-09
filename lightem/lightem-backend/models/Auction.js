@@ -38,9 +38,10 @@ const auctionSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
-    isActive: {
-        type: Boolean,
-        default: true
+    status: {
+        type: String,
+        enum: ['PENDING', 'ACTIVE', 'COMPLETED', 'EXPIRED', 'CANCELLED', 'FAILED'],
+        default: 'PENDING'
     },
     bids: [bidSchema],
     winner: {
@@ -50,10 +51,37 @@ const auctionSchema = new mongoose.Schema({
     finalPrice: {
         type: Number
     },
+    auctionId: {
+        type: String,
+        required: false
+    },
+    completionMethod: {
+        type: String,
+        enum: ['MANUAL', 'AUTOMATIC', null],
+        default: null
+    },
+    completionTime: {
+        type: Date
+    },
+    city: {
+        type: String
+    },
+    latitude: {
+        type: Number
+    },
+    longitude: {
+        type: Number
+    },
+    location: {
+        type: String
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
 });
+
+// Add index for efficient querying
+auctionSchema.index({ status: 1, endTime: 1 });
 
 module.exports = mongoose.model('Auction', auctionSchema); 

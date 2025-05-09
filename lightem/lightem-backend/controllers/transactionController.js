@@ -1,13 +1,11 @@
 const Transaction = require('../models/Transaction');
 const { EnergyToken, web3 } = require('../config/web3');
+const { recordTransactionOnChain } = require('../services/blockchainTransactionService');
 
 // Get all transactions
 exports.getAllTransactions = async (req, res) => {
     try {
-        const transactions = await Transaction.find()
-            .populate('from', 'name address')
-            .populate('to', 'name address')
-            .sort({ timestamp: -1 });
+        const transactions = await Transaction.find().sort({ timestamp: -1 });
 
         res.json(transactions);
     } catch (error) {
@@ -105,4 +103,7 @@ exports.getTransactionStats = async (req, res) => {
         console.error('Error getting transaction stats:', error);
         res.status(500).json({ message: 'Error getting transaction stats', error: error.message });
     }
-}; 
+};
+
+// Example: Add this to your transaction creation logic if/when you add it
+// await recordTransactionOnChain({ from, to, amount, price, type }); 

@@ -1,31 +1,22 @@
 const User = require('../models/User');
-const { UserRegistry, web3 } = require('../config/web3');
 const jwt = require('jsonwebtoken');
+const { UserRegistry, web3 } = require('../config/web3');
 
 // Register a new user
 exports.registerUser = async (req, res) => {
     try {
         const { address, name, latitude, longitude, isProducer } = req.body;
+        console.log('📝 Registering user:', { address, name, latitude, longitude, isProducer });
 
         // Check if user already exists
         let user = await User.findOne({ address: address.toLowerCase() });
+        console.log('🔍 Existing user check:', user);
+        
         if (user) {
             return res.status(400).json({ message: 'User already registered' });
         }
 
-        // Create user in smart contract
-        const userRegistry = await UserRegistry.deployed();
-        const accounts = await web3.eth.getAccounts();
-        
-        await userRegistry.registerUser(
-            name,
-            latitude,
-            longitude,
-            isProducer,
-            { from: address }
-        );
-
-        // Create user in MongoDB
+        // Create user in MongoDB only (for demo)
         user = new User({
             address: address.toLowerCase(),
             name,
@@ -35,14 +26,27 @@ exports.registerUser = async (req, res) => {
             reputation: 0
         });
 
+        console.log('💾 Saving new user:', user);
         await user.save();
+        console.log('✅ User saved successfully');
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { address: user.address },
+            process.env.JWT_SECRET || 'your-secret-key',
+            { expiresIn: '24h' }
+        );
+
+        const { registerUserOnChain } = require('../services/blockchainUserService');
+        await registerUserOnChain({ address, name, latitude, longitude, isProducer });
 
         res.status(201).json({
             message: 'User registered successfully',
-            user
+            user,
+            token
         });
     } catch (error) {
-        console.error('Error registering user:', error);
+        console.error('❌ Error registering user:', error);
         res.status(500).json({ message: 'Error registering user', error: error.message });
     }
 };
@@ -79,7 +83,10 @@ exports.loginUser = async (req, res) => {
 exports.getUser = async (req, res) => {
     try {
         const { address } = req.params;
+        console.log('🔍 Getting user by address:', address);
+        
         const user = await User.findOne({ address: address.toLowerCase() });
+        console.log('✅ Found user:', user);
         
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -87,7 +94,7 @@ exports.getUser = async (req, res) => {
 
         res.json(user);
     } catch (error) {
-        console.error('Error getting user:', error);
+        console.error('❌ Error getting user:', error);
         res.status(500).json({ message: 'Error getting user', error: error.message });
     }
 };
@@ -97,14 +104,6 @@ exports.updateLocation = async (req, res) => {
     try {
         const { address } = req.params;
         const { latitude, longitude } = req.body;
-
-        // Update location in smart contract
-        const userRegistry = await UserRegistry.deployed();
-        await userRegistry.updateLocation(
-            latitude,
-            longitude,
-            { from: address }
-        );
 
         // Update location in MongoDB
         const user = await User.findOneAndUpdate(
@@ -146,10 +145,12 @@ exports.getReputation = async (req, res) => {
 // Get all users
 exports.getAllUsers = async (req, res) => {
     try {
+        console.log('📋 Getting all users');
         const users = await User.find();
+        console.log('✅ Found users:', users);
         res.json(users);
     } catch (error) {
-        console.error('Error getting users:', error);
+        console.error('❌ Error getting users:', error);
         res.status(500).json({ message: 'Error getting users', error: error.message });
     }
 };

@@ -10,9 +10,28 @@ const listingSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    remainingAmount: {
+        type: Number,
+        required: true
+    },
     basePrice: {
         type: Number,
         required: true
+    },
+    city: {
+        type: String
+    },
+    latitude: {
+        type: Number
+    },
+    longitude: {
+        type: Number
+    },
+    location: {
+        type: String
+    },
+    distanceFee: {
+        type: Number
     },
     isActive: {
         type: Boolean,
@@ -28,6 +47,12 @@ const listingSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    expiresAt: {
+        type: Date,
+        default: function() {
+            return new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from creation
+        }
     }
 });
 

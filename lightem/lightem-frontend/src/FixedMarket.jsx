@@ -1,56 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { listings } from './services/api';
 
 const FixedMarket = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const [listings] = useState([
-    {
-      id: 1,
-      producer: "GreenGuru",
-      energy: 61,
-      price: "100.99 wei",
-      distance: "7 km (Ariana)",
-      orders: "112 orders",
-      completion: "98.45%",
-    },
-    {
-      id: 2,
-      producer: "BioBeth",
-      energy: 21,
-      price: "95.50 wei",
-      distance: "12 km (Lac2)",
-      orders: "41 orders",
-      completion: "78.9%",
-    },
-    {
-      id: 3,
-      producer: "SunPower",
-      energy: 45,
-      price: "99.50 wei",
-      distance: "5 km (Marsa)",
-      orders: "67 orders",
-      completion: "85.2%",
-    },
-    {
-      id: 4,
-      producer: "EcoVolt",
-      energy: 80,
-      price: "120.00 wei",
-      distance: "9 km (Bardo)",
-      orders: "88 orders",
-      completion: "92.1%",
-    },
-  ]);
-  const [hoveredButtonId, setHoveredButtonId] = useState(null);
+  const [activeListings, setActiveListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [hoveredId, setHoveredId] = useState(null);
+
+  useEffect(() => {
+    const fetchListings = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await listings.getActive();
+        setActiveListings(res.data);
+      } catch {
+        setError('Failed to load listings.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchListings();
+    const interval = setInterval(fetchListings, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const styles = {
     container: {
       fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      background: theme.background,
+      backgroundColor: theme.background,
+      color: theme.text,
       minHeight: '100vh',
+      transition: 'background-color 0.3s, color 0.3s',
     },
     content: {
       maxWidth: '1200px',
@@ -65,7 +51,7 @@ const FixedMarket = () => {
     },
     title: {
       fontSize: '2.5rem',
-      fontWeight: '800',
+      fontWeight: 800,
       margin: 0,
       color: theme.text,
       fontFamily: "'Poppins', sans-serif",
@@ -73,51 +59,51 @@ const FixedMarket = () => {
     subtitle: {
       color: theme.textSecondary,
       fontSize: '1rem',
-      margin: '0.5rem 0 0 0',
+      margin: '0.5rem 0 0',
     },
-    createListingBtn: {
+    createBtn: {
       backgroundColor: theme.accent,
-      color: theme.text,
+      color: theme.buttonText,
       padding: '0.75rem 1.5rem',
       borderRadius: '0.5rem',
       border: 'none',
-      fontWeight: '600',
+      fontWeight: 600,
       fontSize: '1rem',
       cursor: 'pointer',
-      transition: 'all 0.2s',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
+      transition: 'background-color 0.2s',
     },
     tableHeader: {
       display: 'grid',
-      gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr',
-      fontWeight: '600',
+      gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1fr 1.2fr',
+      fontWeight: 600,
       color: theme.textSecondary,
-      padding: '1rem 0',
+      padding: '1rem 1.5rem',
       borderBottom: `1px solid ${theme.border}`,
+      backgroundColor: theme.cardBackground,
       fontSize: '0.95rem',
     },
     tableRow: {
       display: 'grid',
-      gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr',
+      gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1fr 1.2fr',
       alignItems: 'center',
-      padding: '1rem 1.5rem',
+      padding: '0.75rem 1.5rem',
       borderBottom: `1px solid ${theme.border}`,
-      fontSize: '0.95rem',
-      background: theme.cardBackground,
-      transition: 'background 0.2s',
+      backgroundColor: theme.cardBackground,
+      transition: 'background-color 0.2s',
     },
     buyBtn: {
-      backgroundColor: hoveredButtonId ? theme.accentHover : theme.accent,
-      color: theme.text,
-      padding: '0.5rem 1.25rem',
+      backgroundColor: theme.accent,
+      color: theme.buttonText,
+      padding: '0.5rem 1.2rem',
       borderRadius: '0.4rem',
       border: 'none',
-      fontWeight: '600',
+      fontWeight: 600,
       fontSize: '0.95rem',
       cursor: 'pointer',
-      transition: 'all 0.2s',
+      transition: 'background-color 0.2s',
+    },
+    statusText: {
+      fontWeight: 600,
     },
     emptyState: {
       textAlign: 'center',
@@ -126,6 +112,30 @@ const FixedMarket = () => {
     },
   };
 
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <Navbar />
+        <div style={styles.content}><div>Loading listings...</div></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={styles.container}>
+        <Navbar />
+        <div style={styles.content}><div>{error}</div></div>
+      </div>
+    );
+  }
+
+  const sorted = [...activeListings].sort((a, b) => {
+    if (a.status === 'Active' && b.status !== 'Active') return -1;
+    if (a.status !== 'Active' && b.status === 'Active') return 1;
+    return 0;
+  });
+
   return (
     <div style={styles.container}>
       <Navbar />
@@ -133,66 +143,76 @@ const FixedMarket = () => {
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Fixed Market</h1>
-            <p style={styles.subtitle}>Browse and purchase energy at fixed prices</p>
+            <p style={styles.subtitle}>Real-time fixed-price energy listings</p>
           </div>
-          <button 
-            onClick={() => navigate('/list-energy')} 
-            style={styles.createListingBtn}
+          <button
+            onClick={() => navigate('/list-energy')}
+            style={styles.createBtn}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = theme.accentHover)}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = theme.accent)}
           >
             Create Listing
           </button>
         </div>
 
-        {listings.length > 0 ? (
+        {sorted.length > 0 ? (
           <>
             <div style={styles.tableHeader}>
               <span>Producer</span>
-              <span>Energy amount</span>
+              <span>Available</span>
               <span>Price</span>
               <span>Location</span>
+              <span>Status</span>
               <span>Action</span>
             </div>
-            {listings.map((listing) => (
-              <div 
-                key={listing.id} 
+            {sorted.map(item => (
+              <div
+                key={item._id}
                 style={styles.tableRow}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = theme.hoverBackground)}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = theme.cardBackground)}
               >
-                <div>
-                  <div style={{ fontWeight: '600', color: theme.text, fontSize: '0.95rem' }}>
-                    {listing.producer}
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: theme.textSecondary, lineHeight: '1.5' }}>
-                    {listing.completion} &bull; {listing.orders}
-                  </div>
+                <div style={{ fontWeight: 600, color: theme.text }}>{item.producerName || item.producer || item.seller?.slice(0,8)}</div>
+                <div style={{ color: theme.text }}>
+                  {item.remainingAmount} kWh
+                  {item.status !== 'Active' && item.originalAmount && (
+                    <span style={{ color: theme.textSecondary, marginLeft: 8 }}>
+                      (of {item.originalAmount} kWh)
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontWeight: '600', color: theme.text }}>{listing.energy} kWh</div>
-                <div style={{ fontWeight: '600', color: theme.text }}>{listing.price}</div>
-                <div style={{ color: theme.textSecondary }}>{listing.distance}</div>
+                <div style={{ fontWeight: 600, color: theme.text }}>{item.basePrice} wei</div>
+                <div style={{ color: theme.textSecondary }}>{item.location || '--'}</div>
+                <div style={{ ...styles.statusText, color: item.status === 'Active' ? theme.successColor : item.status === 'Sold' ? theme.errorColor : theme.accent }}>
+                  {item.status}
+                </div>
                 <div>
-                  <button 
-                    style={{
-                      ...styles.buyBtn,
-                      backgroundColor: hoveredButtonId === listing.id ? theme.accentHover : theme.accent,
-                      color: theme.text,
-                    }}
-                    onMouseEnter={() => setHoveredButtonId(listing.id)}
-                    onMouseLeave={() => setHoveredButtonId(null)}
-                    onClick={() => navigate('/buy-energy', { state: { listing } })}
-                  >
-                    Buy Now
-                  </button>
+                  {item.status === 'Active' ? (
+                    <button
+                      style={{
+                        ...styles.buyBtn,
+                        backgroundColor: hoveredId === item._id ? theme.accentHover : theme.accent,
+                        color: theme.buttonText,
+                      }}
+                      onMouseEnter={() => setHoveredId(item._id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      onClick={() => navigate('/buy-energy', { state: { listing: item } })}
+                    >
+                      Buy Now
+                    </button>
+                  ) : (
+                    <span style={{ color: theme.textSecondary, fontWeight: 600 }}>
+                      {item.status}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </>
         ) : (
           <div style={styles.emptyState}>
-            <h3 style={{ color: theme.textSecondary, marginBottom: '1rem' }}>
-              No listings available
-            </h3>
-            <p style={{ color: theme.textSecondary }}>
-              Check back later for new listings or create your own
-            </p>
+            <h3>No fixed listings available</h3>
+            <p>Be the first to create a listing.</p>
           </div>
         )}
       </div>
@@ -200,4 +220,4 @@ const FixedMarket = () => {
   );
 };
 
-export default FixedMarket; 
+export default FixedMarket;

@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
 import { useTheme } from './context/ThemeContext';
+import { useAuctions } from './context/AuctionContext';
+import { useWeb3 } from './context/Web3Context';
+import { useAuth } from './context/AuthContext';
 
 const BidPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { theme } = useTheme();
-    const { auction, viewOnly } = location.state || {};
+    const { auction: auctionFromState, viewOnly } = location.state || {};
+    const { auctionId } = useParams();
+    const { getAuction, placeBid } = useAuctions();
+    const { account } = useWeb3();
+    const { user } = useAuth();
     const [bidAmount, setBidAmount] = useState('');
     const [isBtnHovered, setIsBtnHovered] = useState(false);
+    const [auction, setAuction] = useState(auctionFromState || null);
+    const [loading, setLoading] = useState(!auctionFromState);
+    const [bidError, setBidError] = useState('');
+    const [bidLoading, setBidLoading] = useState(false);
 
     const styles = {
         container: {
@@ -195,34 +206,68 @@ const BidPage = () => {
         },
     };
 
-    const handleSubmit = (e) => {
+    useEffect(() => {
+        if (!auctionFromState) {
+            const fetchAuction = async () => {
+                try {
+                    const data = await getAuction(auctionId);
+                    setAuction(data);
+                } catch {
+                    setAuction(null);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchAuction();
+        } else {
+            setLoading(false);
+        }
+    }, [auctionId, getAuction, auctionFromState]);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // TODO: Implement bid submission logic
-        console.log('Submitting bid:', bidAmount);
+        setBidError('');
+        if (!account || !user) {
+            setBidError('You must be logged in and connected to your wallet.');
+            return;
+        }
+        if (!bidAmount || isNaN(bidAmount) || Number(bidAmount) <= 0) {
+            setBidError('Please enter a valid bid amount.');
+            return;
+        }
+        setBidLoading(true);
+        try {
+            await placeBid(auction._id, { basePrice: Number(bidAmount), bidder: account });
+            // Refresh auction data
+            const updatedAuction = await getAuction(auction._id);
+            setAuction(updatedAuction);
+            setBidAmount('');
+        } catch (err) {
+            setBidError('Failed to place bid. Please try again.');
+        } finally {
+            setBidLoading(false);
+        }
     };
 
-    if (!auction) {
-        return (
-            <div style={styles.container}>
-                <Navbar />
-                <div style={styles.content}>
-                    <div style={styles.header}>
-                        <h1 style={styles.title}>Auction Not Found</h1>
-                        <p style={styles.subtitle}>The auction you are trying to view does not exist.</p>
-                    </div>
-                </div>
-            </div>
-        );
+    // Helper to truncate Ethereum addresses
+    function truncateAddress(address) {
+        if (!address) return '';
+        return address.slice(0, 6) + '...' + address.slice(-4);
     }
+
+    if (loading) return <div>Loading...</div>;
+    if (!auction) return <div>Auction Not Found</div>;
 
     return (
         <div style={styles.container}>
             <Navbar />
             <div style={styles.content}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>{auction.buyer}'s Energy Auction</h1>
-                    <span style={{ ...styles.statusBadge, ...(auction.status === 'open' ? styles.statusOpen : styles.statusClosed) }}>
-                        {auction.status === 'open' ? 'Open' : 'Closed'}
+                    <h1 style={styles.title}>
+                        {auction.buyerName || (auction.buyer ? truncateAddress(auction.buyer) : 'Unknown')}'s Energy Auction
+                    </h1>
+                    <span style={{ ...styles.statusBadge, ...(auction.status === 'ACTIVE' ? styles.statusOpen : styles.statusClosed) }}>
+                        {auction.status === 'ACTIVE' ? 'Open' : 'Closed'}
                     </span>
                 </div>
                 <div style={styles.auctionCard}>
@@ -245,7 +290,7 @@ const BidPage = () => {
                         </div>
                     </div>
 
-                    {auction.status === 'open' && !viewOnly && (
+                    {auction.status === 'ACTIVE' && !viewOnly && (
                         <div style={styles.bidSection}>
                             <h2 style={styles.bidTitle}>Place Your Bid</h2>
                             <form style={styles.bidForm} onSubmit={handleSubmit}>
@@ -258,6 +303,7 @@ const BidPage = () => {
                                         onChange={(e) => setBidAmount(e.target.value)}
                                         placeholder="Enter your bid amount"
                                         required
+                                        disabled={bidLoading}
                                     />
                                 </div>
                                 <button
@@ -265,14 +311,16 @@ const BidPage = () => {
                                     style={styles.submitButton}
                                     onMouseEnter={() => setIsBtnHovered(true)}
                                     onMouseLeave={() => setIsBtnHovered(false)}
+                                    disabled={bidLoading}
                                 >
-                                    Place Bid
+                                    {bidLoading ? 'Placing...' : 'Place Bid'}
                                 </button>
                             </form>
+                            {bidError && <div style={styles.errorMessage}>{bidError}</div>}
                         </div>
                     )}
 
-                    {auction.status === 'closed' && (
+                    {auction.status !== 'ACTIVE' && (
                         <div style={styles.bidHistory}>
                             <h2 style={styles.bidHistoryTitle}>Auction Results</h2>
                             <table style={styles.bidHistoryTable}>
@@ -285,14 +333,16 @@ const BidPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr style={styles.bidHistoryRow}>
-                                        <td style={styles.bidHistoryCell}>0x1234...5678</td>
-                                        <td style={styles.bidHistoryCell}>120.00 wei</td>
-                                        <td style={styles.bidHistoryCell}>2024-03-15 14:30:00</td>
-                                        <td style={styles.bidHistoryCell}>
-                                            <span style={styles.winnerBadge}>Winner</span>
-                                        </td>
-                                    </tr>
+                                    {auction.bids && auction.bids.length > 0 ? auction.bids.map((bid, idx) => (
+                                        <tr style={styles.bidHistoryRow} key={idx}>
+                                            <td style={styles.bidHistoryCell}>{bid.bidderName || (bid.bidder ? truncateAddress(bid.bidder) : 'Unknown')}</td>
+                                            <td style={styles.bidHistoryCell}>{bid.basePrice} wei</td>
+                                            <td style={styles.bidHistoryCell}>{bid.timestamp ? new Date(bid.timestamp).toLocaleString() : ''}</td>
+                                            <td style={styles.bidHistoryCell}>{auction.winner === bid.bidder ? <span style={styles.winnerBadge}>Winner</span> : ''}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="4" style={styles.bidHistoryCell}>No bids yet</td></tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>

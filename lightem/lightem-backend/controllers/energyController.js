@@ -1,32 +1,29 @@
 const EnergyBatch = require('../models/EnergyBatch');
-const { EnergyToken, web3 } = require('../config/web3');
+const {
+    mintEnergyOnChain,
+    transferEnergyOnChain,
+    getEnergyBalance
+} = require('../services/blockchainEnergyService');
+const Transaction = require('../models/Transaction');
+const { EnergyToken } = require('../config/web3');
 
 // Mint new energy tokens
 exports.mintEnergy = async (req, res) => {
     try {
-        const { address, amount, price } = req.body;
+        const { address, amount, latitude, longitude, price, timestamp } = req.body;
 
-        // Mint tokens in smart contract
-        const energyToken = await EnergyToken.deployed();
-        await energyToken.mint(
-            amount,
-            price,
-            { from: address }
-        );
-
-        // Get the latest batch
-        const totalBatches = await energyToken.getTotalBatches();
-        const batchId = totalBatches - 1;
-        const batch = await energyToken.getBatch(batchId);
+        // Mint tokens on-chain
+        await mintEnergyOnChain({ address, amount });
 
         // Create energy batch in MongoDB
         const energyBatch = new EnergyBatch({
             producer: address.toLowerCase(),
             amount,
-            latitude: batch.latitude,
-            longitude: batch.longitude,
+            latitude,
+            longitude,
             price,
-            timestamp: new Date(batch.timestamp * 1000)
+            timestamp: timestamp || Date.now(),
+            status: 'available'
         });
 
         await energyBatch.save();
@@ -52,6 +49,58 @@ exports.getEnergyBatches = async (req, res) => {
     }
 };
 
+// Get energy balance
+exports.getBalance = async (req, res) => {
+    try {
+        const { address } = req.params;
+        const balance = await getEnergyBalance(address);
+        const humanReadable = Number(balance) / 1e18;
+        res.json({ 
+            balance: balance.toString(),
+            humanReadable 
+        });
+    } catch (error) {
+        console.error('Error getting balance:', error);
+        res.status(500).json({ message: 'Error getting balance', error: error.message });
+    }
+};
+
+// Transfer energy tokens
+exports.transferEnergy = async (req, res) => {
+    try {
+        const { from, to, amount } = req.body;
+
+        // Transfer tokens on-chain
+        const tx = await transferEnergyOnChain({ from, to, amount });
+
+        // Update energy batch status in MongoDB
+        await EnergyBatch.findOneAndUpdate(
+            { producer: from.toLowerCase(), isActive: true },
+            { isActive: false, transferredTo: to.toLowerCase() }
+        );
+
+        // Create transaction record
+        const transaction = new Transaction({
+            type: 'ENERGY_TRANSFER',
+            from,
+            to,
+            amount,
+            price: 0, // or use the batch price if you want
+            transactionHash: tx.tx || tx.transactionHash, // Use the actual hash from the blockchain tx
+            status: 'COMPLETED'
+        });
+        await transaction.save();
+
+        res.json({
+            message: 'Energy tokens transferred successfully',
+            transaction
+        });
+    } catch (error) {
+        console.error('Error transferring energy:', error);
+        res.status(500).json({ message: 'Error transferring energy', error: error.message });
+    }
+};
+
 // Get energy batches by producer
 exports.getProducerBatches = async (req, res) => {
     try {
@@ -71,12 +120,16 @@ exports.getProducerBatches = async (req, res) => {
 exports.getPriceHistory = async (req, res) => {
     try {
         const energyToken = await EnergyToken.deployed();
-        const [prices, timestamps] = await energyToken.getPriceHistory();
+        const result = await energyToken.getPriceHistory();
+        const prices = result.prices;
+        const timestamps = result.timestamps;
 
-        const priceHistory = prices.map((price, index) => ({
-            price: price.toString(),
-            timestamp: new Date(timestamps[index] * 1000)
-        }));
+        const priceHistory = prices
+            .map((price, index) => ({
+                price: price.toString(),
+                timestamp: new Date(Number(timestamps[index]) * 1000)
+            }))
+            .filter(entry => entry.price !== "0");
 
         res.json(priceHistory);
     } catch (error) {

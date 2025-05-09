@@ -10,7 +10,8 @@ const reverseAuctionMarketABI = JSON.parse(fs.readFileSync(path.join(__dirname, 
 const fixedPriceMarketABI = JSON.parse(fs.readFileSync(path.join(__dirname, '../../build/contracts/FixedPriceMarket.json'), 'utf8'));
 
 // Connect to local Ganache network
-const web3 = new Web3('http://localhost:7545');
+//const web3 = new Web3('http://localhost:7545');
+const web3 = new Web3('http://127.0.0.1:7545');
 
 // Create contract instances
 const EnergyToken = Contract(energyTokenABI);
