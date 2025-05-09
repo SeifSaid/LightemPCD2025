@@ -4,9 +4,9 @@ Lightem is a P2P Ethereum-based energy trading platform allowing energy token tr
 
 # Creators :
 
-Seifeddine Said
-Mohamed Aziz Jridi
-Ines Talbi
+- Seifeddine Said
+- Mohamed Aziz Jridi
+- Ines Talbi
 
 ## Tech Stack
 
