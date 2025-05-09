@@ -166,6 +166,6 @@ contract FixedPriceMarket is ReentrancyGuard {
     }
 
     function getSuggestedPrice() external view returns (uint256) {
-        return energyToken.getAveragePrice(1 days);  // Get average price over last 24 hours
+        return energyToken.getAveragePrice(1 days);  // average over last 24 hours
     }
 }
